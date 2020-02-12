@@ -70,10 +70,14 @@ const walletsListReducer = (state: WalletsState['wallets'], action: WalletsActio
             );
 
             if (walletIndex !== -1) {
+                const updatedList = [ ...state.list ];
+                updatedList[walletIndex] = { ...updatedList[walletIndex], address: action.payload.address };
+
                 return {
                     ...state,
                     loading: false,
                     selectedWalletAddress: action.payload.address,
+                    list: updatedList,
                 };
             }
 

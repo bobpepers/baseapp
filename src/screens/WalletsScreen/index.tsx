@@ -36,6 +36,7 @@ import {
     walletsData,
     walletsFetch,
     walletsWithdrawCcyFetch,
+    walletsAddressData,
 } from '../../modules';
 import { CommonError } from '../../modules/types';
 
@@ -63,6 +64,7 @@ interface DispatchProps {
     fetchSuccess: typeof alertPush;
     setMobileWalletUi: typeof setMobileWalletUi;
     currenciesFetch: typeof currenciesFetch;
+    setSelectedWalletAddress: typeof walletsAddressData;
 }
 
 const defaultBeneficiary: Beneficiary = {
@@ -120,7 +122,7 @@ class WalletsComponent extends React.Component<Props, WalletsState> {
 
     public componentDidMount() {
         setDocumentTitle('Wallets');
-        const { wallets, fetchAddress } = this.props;
+        const { wallets } = this.props;
         const { selectedWalletIndex } = this.state;
 
         if (this.props.wallets.length === 0) {
@@ -133,7 +135,6 @@ class WalletsComponent extends React.Component<Props, WalletsState> {
 
         if (selectedWalletIndex === -1 && wallets.length) {
             this.setState({ selectedWalletIndex: 0 });
-            wallets[0].type === 'coin' && fetchAddress({ currency: wallets[0].currency });
         }
 
         if (!this.props.currencies.length) {
@@ -158,7 +159,6 @@ class WalletsComponent extends React.Component<Props, WalletsState> {
                 selectedWalletIndex: 0,
             });
             this.props.fetchBeneficiaries();
-            next.wallets[0].type === 'coin' && this.props.fetchAddress({ currency: next.wallets[0].currency });
         }
 
         if (!withdrawSuccess && next.withdrawSuccess) {
@@ -305,8 +305,17 @@ class WalletsComponent extends React.Component<Props, WalletsState> {
         this.props.fetchSuccess({ message: ['page.body.wallets.tabs.deposit.ccy.message.success'], type: 'success'});
     };
 
+    private handleGenerateAddress = () => {
+        const { selectedWalletIndex } = this.state;
+        const { wallets } = this.props;
+
+        if (!wallets[selectedWalletIndex].address && wallets.length && wallets[selectedWalletIndex].type !== 'fiat') {
+            this.props.fetchAddress({ currency: wallets[selectedWalletIndex].currency });
+        }
+    }
+
     private renderDeposit = () => {
-        const { addressDepositError, wallets, user, selectedWalletAddress, currencies } = this.props;
+        const { addressDepositError, wallets, user, currencies } = this.props;
         const { selectedWalletIndex } = this.state;
         const currency = (wallets[selectedWalletIndex] || { currency: '' }).currency;
         const currencyItem = (currencies && currencies.find(item => item.id === currency)) || { min_confirmations: 6 };
@@ -316,7 +325,11 @@ class WalletsComponent extends React.Component<Props, WalletsState> {
             this.props.intl.formatMessage({id: addressDepositError.message}) :
             this.props.intl.formatMessage({id: 'page.body.wallets.tabs.deposit.ccy.message.error'});
 
-        const walletAddress = formatCCYAddress(currency, selectedWalletAddress);
+        const walletAddress = formatCCYAddress(currency, wallets[selectedWalletIndex].address);
+
+        const buttonLabel = `
+            ${this.translate('page.body.wallets.tabs.deposit.ccy.button.generate')} ${currency.toUpperCase()} ${this.translate('page.body.wallets.tabs.deposit.ccy.button.address')}
+        `;
 
         if (wallets[selectedWalletIndex].type === 'coin') {
             return (
@@ -330,6 +343,8 @@ class WalletsComponent extends React.Component<Props, WalletsState> {
                         disabled={walletAddress === ''}
                         copiableTextFieldText={this.translate('page.body.wallets.tabs.deposit.ccy.message.address')}
                         copyButtonText={this.translate('page.body.wallets.tabs.deposit.ccy.message.button')}
+                        handleGenerateAddress={this.handleGenerateAddress}
+                        buttonLabel={buttonLabel}
                     />
                     {currency && <WalletHistory label="deposit" type="deposits" currency={currency} />}
                 </React.Fragment>
@@ -418,12 +433,11 @@ class WalletsComponent extends React.Component<Props, WalletsState> {
 
     private onWalletSelectionChange = (value: WalletItemProps) => {
         const { wallets } = this.props;
-        if (!value.address && wallets.length && value.type !== 'fiat') {
-            this.props.fetchAddress({ currency: value.currency });
-        }
+
         const nextWalletIndex = this.props.wallets.findIndex(
             wallet => wallet.currency.toLowerCase() === value.currency.toLowerCase(),
         );
+
         this.setState({ selectedWalletIndex: nextWalletIndex, withdrawDone: false });
         this.props.setMobileWalletUi(wallets[nextWalletIndex].name);
     };
@@ -452,6 +466,7 @@ const mapDispatchToProps: MapDispatchToProps<DispatchProps, {}> = dispatch => ({
     fetchSuccess: payload => dispatch(alertPush(payload)),
     setMobileWalletUi: payload => dispatch(setMobileWalletUi(payload)),
     currenciesFetch: () => dispatch(currenciesFetch()),
+    setSelectedWalletAddress: payload => dispatch(walletsAddressData(payload)),
 });
 
 // tslint:disable-next-line:no-any
